@@ -3047,6 +3047,27 @@ static int www_body(char *hostname, int s, int stype, unsigned char *context)
                 break;
             }
 
+            FILE* fp = NULL;
+            BIO_get_fp(file, &fp);
+            if (fp == NULL) {
+                BIO_printf(bio_err, "Error getting fp from bio'%s'\n", p);
+                BIO_puts(io, text);
+                BIO_printf(io, "Error getting fp from bio'%s'\r\n", p);
+                ERR_print_errors(io);
+                break;
+            }
+
+            if (fseek(fp, 0, SEEK_END) < 0) {
+                BIO_printf(bio_err, "Error fp fseek fail'%s'\n", p);
+                BIO_puts(io, text);
+                BIO_printf(io, "Error fp fseek fail'%s'\r\n", p);
+                ERR_print_errors(io);
+                break;
+            }
+
+            int file_size = (int)ftell(fp);
+            rewind(fp);
+
             if (!s_quiet)
                 BIO_printf(bio_err, "FILE:%s\n", p);
 
@@ -3055,11 +3076,11 @@ static int www_body(char *hostname, int s, int stype, unsigned char *context)
                 if (((i > 5) && (strcmp(&(p[i - 5]), ".html") == 0)) ||
                     ((i > 4) && (strcmp(&(p[i - 4]), ".php") == 0)) ||
                     ((i > 4) && (strcmp(&(p[i - 4]), ".htm") == 0)))
-                    BIO_puts(io,
-                             "HTTP/1.0 200 ok\r\nContent-type: text/html\r\n\r\n");
+                    BIO_printf(io,
+                             "HTTP/1.0 200 ok\r\nContent-type: text/html\r\nContent-length: %d\r\n\r\n", file_size);
                 else
-                    BIO_puts(io,
-                             "HTTP/1.0 200 ok\r\nContent-type: text/plain\r\n\r\n");
+                    BIO_printf(io,
+                             "HTTP/1.0 200 ok\r\nContent-type: text/plain\r\nContent-length: %d\r\n\r\n", file_size);
             }
             /* send the file */
             for (;;) {
@@ -3100,7 +3121,16 @@ static int www_body(char *hostname, int s, int stype, unsigned char *context)
             }
  write_error:
             BIO_free(file);
-            break;
+            // break;
+        }
+
+        for (;;) {
+            i = (int)BIO_flush(io);
+            if (i <= 0) {
+                if (!BIO_should_retry(io))
+                    break;
+            } else
+                break;
         }
     }
 
