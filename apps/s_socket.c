@@ -63,6 +63,9 @@
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
+#include <sys/socket.h>
+#include <netinet/tcp.h>
+#include <netinet/in.h>
 
 #ifdef FLAT_INC
 # include "e_os2.h"
@@ -427,6 +430,9 @@ static int do_accept(int acc_sock, int *sock, char **host)
 # endif
         return (0);
     }
+
+    int on = 1;
+    setsockopt(ret, IPPROTO_TCP, TCP_NODELAY, (char*)(&on), sizeof(on));
 
 /*-
     ling.l_onoff=1;
